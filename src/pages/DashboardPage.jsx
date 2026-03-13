@@ -164,6 +164,7 @@ const TransactionList = ({ title, rows, type }) => (
 
 const DashboardPage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedProfile, setSelectedProfile] = useState(localStorage.getItem("selectedProfile") || "");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -171,7 +172,9 @@ const DashboardPage = () => {
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
+      const profile = event.detail?.profile || localStorage.getItem("selectedProfile") || "";
       setSelectedWorkspace(workspaceName);
+      setSelectedProfile(profile);
     };
 
     window.addEventListener("workspace:changed", onWorkspaceChanged);
@@ -188,9 +191,10 @@ const DashboardPage = () => {
       setLoading(true);
       setError("");
       try {
-        const data = await authService.getProtectedDashboard(
-          selectedWorkspace ? { workspace: selectedWorkspace } : {}
-        );
+        const data = await authService.getProtectedDashboard({
+          ...(selectedWorkspace ? { workspace: selectedWorkspace } : {}),
+          ...(selectedProfile ? { profile: selectedProfile } : {})
+        });
         setDashboardData(data);
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
@@ -200,7 +204,7 @@ const DashboardPage = () => {
     };
 
     loadData();
-  }, [selectedWorkspace]);
+  }, [selectedWorkspace, selectedProfile]);
 
   const summary = dashboardData?.summary || { totalIncome: 0, totalExpenses: 0, totalBalance: 0 };
   const recentTransactions = dashboardData?.recentTransactions || [];
@@ -234,6 +238,7 @@ const DashboardPage = () => {
     <AppShell activeKey="dashboard">
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
         Active workspace: <span className="font-semibold text-slate-900 dark:text-slate-100">{selectedWorkspace || "Not selected"}</span>
+        {selectedProfile ? ` (${selectedProfile})` : ""}
       </div>
 
       {loading && (

@@ -12,7 +12,7 @@ const deriveProfileFromWorkspace = (workspaceName) => {
   const text = (workspaceName || "").toLowerCase();
   if (text.includes("personal")) return "Personal";
   if (text.includes("company")) return "Company";
-  return "";
+  return workspaceName ? "Company" : "";
 };
 
 const startOfUtcDay = (dateValue) => {
@@ -96,6 +96,10 @@ const buildRangeMeta = ({ mode, customFrom, customTo }) => {
 
 const IncomePage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedProfile, setSelectedProfile] = useState(
+    localStorage.getItem("selectedProfile") ||
+      deriveProfileFromWorkspace(localStorage.getItem("selectedWorkspace") || "")
+  );
   const [incomeSources, setIncomeSources] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +119,10 @@ const IncomePage = () => {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  const selectedProfile = useMemo(() => deriveProfileFromWorkspace(selectedWorkspace) || "", [selectedWorkspace]);
+  const effectiveProfile = useMemo(
+    () => selectedProfile || deriveProfileFromWorkspace(selectedWorkspace) || "",
+    [selectedProfile, selectedWorkspace]
+  );
   const rangeMeta = useMemo(
     () =>
       buildRangeMeta({
@@ -127,13 +134,13 @@ const IncomePage = () => {
   );
 
   const filteredSources = useMemo(() => {
-    const byProfile = selectedProfile
-      ? incomeSources.filter((source) => source.profile === selectedProfile)
+    const byProfile = effectiveProfile
+      ? incomeSources.filter((source) => source.profile === effectiveProfile)
       : incomeSources;
 
     if (!form.incomeNature) return [];
     return byProfile.filter((source) => source.type === form.incomeNature);
-  }, [incomeSources, selectedProfile, form.incomeNature]);
+  }, [incomeSources, effectiveProfile, form.incomeNature]);
 
   useEffect(() => {
     if (!isAddModalOpen) return;
@@ -145,7 +152,12 @@ const IncomePage = () => {
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
+      const profile =
+        event.detail?.profile ||
+        localStorage.getItem("selectedProfile") ||
+        deriveProfileFromWorkspace(workspaceName);
       setSelectedWorkspace(workspaceName);
+      setSelectedProfile(profile);
     };
 
     window.addEventListener("workspace:changed", onWorkspaceChanged);
@@ -163,11 +175,11 @@ const IncomePage = () => {
       try {
         const [sourcesRes, incomesRes] = await Promise.all([
           authService.listIncomeSources({
-            ...(selectedProfile ? { profile: selectedProfile } : {})
+            ...(effectiveProfile ? { profile: effectiveProfile } : {})
           }),
           authService.listIncomes({
             workspace: selectedWorkspace,
-            ...(selectedProfile ? { profile: selectedProfile } : {})
+            ...(effectiveProfile ? { profile: effectiveProfile } : {})
           })
         ]);
         setIncomeSources(sourcesRes.incomeSources || []);
@@ -180,7 +192,7 @@ const IncomePage = () => {
     };
 
     loadIncomeData();
-  }, [selectedWorkspace, selectedProfile]);
+  }, [selectedWorkspace, effectiveProfile]);
 
   useEffect(() => {
     if (!isAddModalOpen) return undefined;
@@ -232,7 +244,7 @@ const IncomePage = () => {
 
     setFormLoading(true);
     try {
-      const profile = selectedProfile || "Personal";
+      const profile = effectiveProfile || "Personal";
       const workspaceName = selectedWorkspace || profile;
       const response = await authService.createIncome({
         workspaceName,
@@ -328,7 +340,7 @@ const IncomePage = () => {
             </p>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Active workspace: <span className="font-semibold">{selectedWorkspace || "Not selected"}</span>
-              {selectedProfile ? ` (${selectedProfile})` : ""}
+              {effectiveProfile ? ` (${effectiveProfile})` : ""}
             </p>
           </div>
           <button
@@ -521,8 +533,8 @@ const IncomePage = () => {
                       key={item}
                       type="button"
                       onClick={() => {
-                        const nextSources = (selectedProfile
-                          ? incomeSources.filter((source) => source.profile === selectedProfile)
+                        const nextSources = (effectiveProfile
+                          ? incomeSources.filter((source) => source.profile === effectiveProfile)
                           : incomeSources
                         ).filter((source) => source.type === item);
 

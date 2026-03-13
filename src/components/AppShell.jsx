@@ -15,21 +15,47 @@ const AppShell = ({ activeKey, children }) => {
   const [selectedCompany, setSelectedCompany] = useState(
     () => localStorage.getItem("selectedWorkspace") || ""
   );
+  const [selectedProfile, setSelectedProfile] = useState(
+    () => localStorage.getItem("selectedProfile") || ""
+  );
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [companyError, setCompanyError] = useState("");
   const companyMenuRef = useRef(null);
-  const updateSelectedWorkspace = (workspaceName) => {
+
+  const resolveWorkspaceProfile = (workspaceName, userName = "") => {
+    const normalizedWorkspace = (workspaceName || "").trim().toLowerCase();
+    const normalizedUserName = (userName || "").trim().toLowerCase();
+
+    if (!normalizedWorkspace) return "";
+    if (normalizedWorkspace.includes("personal")) return "Personal";
+    if (normalizedUserName && normalizedWorkspace === normalizedUserName) return "Personal";
+    return "Company";
+  };
+
+  const updateSelectedWorkspace = (workspaceName, explicitProfile = "") => {
     if (!workspaceName) return;
+    const nextProfile = explicitProfile || resolveWorkspaceProfile(workspaceName, user?.name || "");
+
     const savedWorkspace = localStorage.getItem("selectedWorkspace") || "";
-    if (savedWorkspace === workspaceName && selectedCompany === workspaceName) {
+    const savedProfile = localStorage.getItem("selectedProfile") || "";
+    if (
+      savedWorkspace === workspaceName &&
+      savedProfile === nextProfile &&
+      selectedCompany === workspaceName &&
+      selectedProfile === nextProfile
+    ) {
       return;
     }
 
     setSelectedCompany(workspaceName);
+    setSelectedProfile(nextProfile);
     localStorage.setItem("selectedWorkspace", workspaceName);
-    window.dispatchEvent(new CustomEvent("workspace:changed", { detail: { workspaceName } }));
+    localStorage.setItem("selectedProfile", nextProfile);
+    window.dispatchEvent(
+      new CustomEvent("workspace:changed", { detail: { workspaceName, profile: nextProfile } })
+    );
   };
 
   useEffect(() => {
@@ -137,12 +163,8 @@ const AppShell = ({ activeKey, children }) => {
   const avatarUrl = normalizeAvatarUrl(user?.avatar || "");
   const showAvatarImage = Boolean(avatarUrl) && !avatarLoadFailed;
   const workspaceLabel = selectedCompany || user?.name || "My Workspace";
-  const normalizedWorkspaceLabel = workspaceLabel.trim().toLowerCase();
-  const normalizedUserName = (user?.name || "").trim().toLowerCase();
-  const isPersonalWorkspace =
-    !workspaceLabel ||
-    normalizedWorkspaceLabel === normalizedUserName ||
-    normalizedWorkspaceLabel.includes("personal");
+  const effectiveProfile = selectedProfile || resolveWorkspaceProfile(workspaceLabel, user?.name || "");
+  const isPersonalWorkspace = effectiveProfile !== "Company";
   const shouldShowAvatarImage = showAvatarImage && isPersonalWorkspace;
   const fallbackLabel = isPersonalWorkspace ? user?.name || workspaceLabel || "User" : workspaceLabel || "User";
   const avatarLetter = fallbackLabel.trim().charAt(0).toUpperCase();

@@ -12,7 +12,7 @@ const deriveProfileFromWorkspace = (workspaceName) => {
   const text = (workspaceName || "").toLowerCase();
   if (text.includes("personal")) return "Personal";
   if (text.includes("company")) return "Company";
-  return "";
+  return workspaceName ? "Company" : "";
 };
 
 const startOfUtcDay = (dateValue) => {
@@ -96,6 +96,10 @@ const buildRangeMeta = ({ mode, customFrom, customTo }) => {
 
 const ExpensePage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedProfile, setSelectedProfile] = useState(
+    localStorage.getItem("selectedProfile") ||
+      deriveProfileFromWorkspace(localStorage.getItem("selectedWorkspace") || "")
+  );
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +119,10 @@ const ExpensePage = () => {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  const selectedProfile = useMemo(() => deriveProfileFromWorkspace(selectedWorkspace) || "", [selectedWorkspace]);
+  const effectiveProfile = useMemo(
+    () => selectedProfile || deriveProfileFromWorkspace(selectedWorkspace) || "",
+    [selectedProfile, selectedWorkspace]
+  );
   const rangeMeta = useMemo(
     () =>
       buildRangeMeta({
@@ -127,13 +134,13 @@ const ExpensePage = () => {
   );
 
   const filteredCategories = useMemo(() => {
-    const byProfile = selectedProfile
-      ? expenseCategories.filter((category) => category.profile === selectedProfile)
+    const byProfile = effectiveProfile
+      ? expenseCategories.filter((category) => category.profile === effectiveProfile)
       : expenseCategories;
 
     if (!form.expenseType) return [];
     return byProfile.filter((category) => category.type === form.expenseType);
-  }, [expenseCategories, selectedProfile, form.expenseType]);
+  }, [expenseCategories, effectiveProfile, form.expenseType]);
 
   useEffect(() => {
     if (!isAddModalOpen) return;
@@ -145,7 +152,12 @@ const ExpensePage = () => {
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
+      const profile =
+        event.detail?.profile ||
+        localStorage.getItem("selectedProfile") ||
+        deriveProfileFromWorkspace(workspaceName);
       setSelectedWorkspace(workspaceName);
+      setSelectedProfile(profile);
     };
 
     window.addEventListener("workspace:changed", onWorkspaceChanged);
@@ -163,11 +175,11 @@ const ExpensePage = () => {
       try {
         const [categoriesRes, expensesRes] = await Promise.all([
           authService.listExpenseCategories({
-            ...(selectedProfile ? { profile: selectedProfile } : {})
+            ...(effectiveProfile ? { profile: effectiveProfile } : {})
           }),
           authService.listExpenses({
             workspace: selectedWorkspace,
-            ...(selectedProfile ? { profile: selectedProfile } : {})
+            ...(effectiveProfile ? { profile: effectiveProfile } : {})
           })
         ]);
         setExpenseCategories(categoriesRes.expenseCategories || []);
@@ -180,7 +192,7 @@ const ExpensePage = () => {
     };
 
     loadExpenseData();
-  }, [selectedWorkspace, selectedProfile]);
+  }, [selectedWorkspace, effectiveProfile]);
 
   useEffect(() => {
     if (!isAddModalOpen) return undefined;
@@ -232,7 +244,7 @@ const ExpensePage = () => {
 
     setFormLoading(true);
     try {
-      const profile = selectedProfile || "Personal";
+      const profile = effectiveProfile || "Personal";
       const workspaceName = selectedWorkspace || profile;
       const response = await authService.createExpense({
         workspaceName,
@@ -328,7 +340,7 @@ const ExpensePage = () => {
             </p>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Active workspace: <span className="font-semibold">{selectedWorkspace || "Not selected"}</span>
-              {selectedProfile ? ` (${selectedProfile})` : ""}
+              {effectiveProfile ? ` (${effectiveProfile})` : ""}
             </p>
           </div>
           <button
@@ -521,8 +533,8 @@ const ExpensePage = () => {
                         key={item}
                         type="button"
                         onClick={() => {
-                          const nextCategories = (selectedProfile
-                            ? expenseCategories.filter((category) => category.profile === selectedProfile)
+                          const nextCategories = (effectiveProfile
+                            ? expenseCategories.filter((category) => category.profile === effectiveProfile)
                             : expenseCategories
                           ).filter((category) => category.type === item);
 
