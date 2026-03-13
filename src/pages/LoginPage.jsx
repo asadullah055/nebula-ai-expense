@@ -45,7 +45,7 @@ const LoginPage = () => {
       navigate(from, { replace: true });
     },
     onError: (message) => setError(message),
-    autoPrompt: true
+    autoPrompt: import.meta.env.DEV
   });
 
   if (isInitializing) {

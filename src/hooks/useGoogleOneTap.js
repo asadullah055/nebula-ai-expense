@@ -106,7 +106,8 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
         }
       },
       auto_select: false,
-      cancel_on_tap_outside: true
+      cancel_on_tap_outside: true,
+      use_fedcm_for_prompt: false
     });
     initializedRef.current = true;
 
@@ -155,17 +156,15 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
 
   const openGoogleLoginPopup = () => {
     initializeGoogle().then((ok) => {
-      if (!ok) {
-        openFallbackPopup();
-        return;
-      }
+      if (!ok) return;
 
+      let fallbackTriggered = false;
       window.google.accounts.id.prompt((notification) => {
         const notDisplayed = notification?.isNotDisplayed?.() ?? false;
         const skipped = notification?.isSkippedMoment?.() ?? false;
 
-        // If GIS prompt is unavailable, fallback to OAuth popup flow.
-        if (notDisplayed || skipped) {
+        if ((notDisplayed || skipped) && !fallbackTriggered) {
+          fallbackTriggered = true;
           openFallbackPopup();
         }
       });
