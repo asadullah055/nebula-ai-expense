@@ -154,7 +154,22 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
   };
 
   const openGoogleLoginPopup = () => {
-    openFallbackPopup();
+    initializeGoogle().then((ok) => {
+      if (!ok) {
+        openFallbackPopup();
+        return;
+      }
+
+      window.google.accounts.id.prompt((notification) => {
+        const notDisplayed = notification?.isNotDisplayed?.() ?? false;
+        const skipped = notification?.isSkippedMoment?.() ?? false;
+
+        // If GIS prompt is unavailable, fallback to OAuth popup flow.
+        if (notDisplayed || skipped) {
+          openFallbackPopup();
+        }
+      });
+    });
   };
 
   return { promptGoogleOneTap, openGoogleLoginPopup };
