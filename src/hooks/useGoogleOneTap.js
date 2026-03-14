@@ -3,6 +3,10 @@ import { authService } from "../services/authService";
 
 const GOOGLE_SCRIPT_ID = "google-gsi-script";
 let googleScriptPromise = null;
+const GOOGLE_AUTO_PROMPT_DEFAULT =
+  String(import.meta.env.VITE_GOOGLE_ONE_TAP_AUTO_PROMPT ?? "true").toLowerCase() !== "false";
+const GOOGLE_USE_FEDCM =
+  String(import.meta.env.VITE_GOOGLE_USE_FEDCM ?? "true").toLowerCase() !== "false";
 
 const loadGoogleScript = () => {
   if (googleScriptPromise) return googleScriptPromise;
@@ -27,7 +31,11 @@ const loadGoogleScript = () => {
   return googleScriptPromise;
 };
 
-export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
+export const useGoogleOneTap = ({
+  onSuccess,
+  onError,
+  autoPrompt = GOOGLE_AUTO_PROMPT_DEFAULT
+}) => {
   const initializedRef = useRef(false);
   const promptedRef = useRef(false);
 
@@ -81,7 +89,7 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
   const initializeGoogle = async () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
-      onError?.("VITE_GOOGLE_CLIENT_ID is missing");
+      onError?.("VITE_GOOGLE_CLIENT_ID is missing. Google One Tap requires this in frontend env.");
       return false;
     }
 
@@ -107,7 +115,7 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
       },
       auto_select: false,
       cancel_on_tap_outside: true,
-      use_fedcm_for_prompt: false
+      use_fedcm_for_prompt: GOOGLE_USE_FEDCM
     });
     initializedRef.current = true;
 
@@ -141,6 +149,8 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
   }, [onSuccess, onError, autoPrompt]);
 
   const promptGoogleOneTap = () => {
+    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) return;
+
     initializeGoogle().then((ok) => {
       if (!ok) return;
       window.google.accounts.id.prompt((notification) => {
@@ -155,6 +165,11 @@ export const useGoogleOneTap = ({ onSuccess, onError, autoPrompt = true }) => {
   };
 
   const openGoogleLoginPopup = () => {
+    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+      openFallbackPopup();
+      return;
+    }
+
     initializeGoogle().then((ok) => {
       if (!ok) return;
 

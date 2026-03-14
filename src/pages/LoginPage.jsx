@@ -45,7 +45,7 @@ const LoginPage = () => {
       navigate(from, { replace: true });
     },
     onError: (message) => setError(message),
-    autoPrompt: import.meta.env.DEV
+    autoPrompt: import.meta.env.VITE_GOOGLE_ONE_TAP_AUTO_PROMPT !== "false"
   });
 
   if (isInitializing) {
