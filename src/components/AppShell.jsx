@@ -196,7 +196,11 @@ const AppShell = ({ activeKey, children }) => {
   }, [selectedWorkspaceId, selectedProfile]);
 
   const onLogout = async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch (_error) {
+      // Continue local logout even if API call fails.
+    }
     clearAuth();
     navigate("/login", { replace: true });
   };
