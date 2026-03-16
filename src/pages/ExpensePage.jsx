@@ -96,6 +96,9 @@ const buildRangeMeta = ({ mode, customFrom, customTo }) => {
 
 const ExpensePage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    localStorage.getItem("selectedWorkspaceId") || ""
+  );
   const [selectedProfile, setSelectedProfile] = useState(
     localStorage.getItem("selectedProfile") ||
       deriveProfileFromWorkspace(localStorage.getItem("selectedWorkspace") || "")
@@ -151,11 +154,13 @@ const ExpensePage = () => {
 
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
+      const workspaceId = event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "";
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
       const profile =
         event.detail?.profile ||
         localStorage.getItem("selectedProfile") ||
         deriveProfileFromWorkspace(workspaceName);
+      setSelectedWorkspaceId(workspaceId);
       setSelectedWorkspace(workspaceName);
       setSelectedProfile(profile);
     };
@@ -170,15 +175,25 @@ const ExpensePage = () => {
 
   useEffect(() => {
     const loadExpenseData = async () => {
+      const workspaceId = (selectedWorkspaceId || "").trim();
+      if (!workspaceId) {
+        setExpenseCategories([]);
+        setExpenses([]);
+        setError("Please select a workspace to view expenses.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError("");
       try {
         const [categoriesRes, expensesRes] = await Promise.all([
           authService.listExpenseCategories({
+            workspaceId,
             ...(effectiveProfile ? { profile: effectiveProfile } : {})
           }),
           authService.listExpenses({
-            workspace: selectedWorkspace,
+            workspaceId,
             ...(effectiveProfile ? { profile: effectiveProfile } : {})
           })
         ]);
@@ -192,7 +207,7 @@ const ExpensePage = () => {
     };
 
     loadExpenseData();
-  }, [selectedWorkspace, effectiveProfile]);
+  }, [selectedWorkspaceId, effectiveProfile]);
 
   useEffect(() => {
     if (!isAddModalOpen) return undefined;
@@ -224,6 +239,16 @@ const ExpensePage = () => {
   const onSubmitExpense = async (event) => {
     event.preventDefault();
     setFormError("");
+    const workspaceId = (selectedWorkspaceId || "").trim();
+    const workspaceName = (selectedWorkspace || "").trim();
+    if (!workspaceId) {
+      setFormError("Please select a workspace first");
+      return;
+    }
+    if (!workspaceName) {
+      setFormError("Please select a workspace first");
+      return;
+    }
 
     if (!form.expenseType) {
       setFormError("Please select expense type");
@@ -244,10 +269,9 @@ const ExpensePage = () => {
 
     setFormLoading(true);
     try {
-      const profile = effectiveProfile || "Personal";
-      const workspaceName = selectedWorkspace || profile;
+      const profile = effectiveProfile || deriveProfileFromWorkspace(workspaceName) || "Company";
       const response = await authService.createExpense({
-        workspaceName,
+        workspaceId,
         profile,
         expenseCategoryId: form.expenseCategoryId,
         expenseType: form.expenseType,

@@ -30,6 +30,16 @@ export const authService = {
     const response = await api.post("/api/workspaces", { name });
     return response.data;
   },
+  getWorkspaceProfile: async (workspaceId) => {
+    const response = await api.get("/api/workspaces/profile", { params: { workspaceId } });
+    return response.data;
+  },
+  updateWorkspaceProfile: async (formData) => {
+    const response = await api.patch("/api/workspaces/profile", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data;
+  },
   listIncomeSources: async (params = {}) => {
     const response = await api.get("/api/income-sources", { params });
     return response.data;

@@ -54,8 +54,12 @@ export const useGoogleOneTap = ({
       try {
         const data = await authService.getMe();
         onSuccess?.(data);
-      } catch (_error) {
-        onError?.("Google popup login failed. Please try again.");
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.data?.errors?.[0]?.msg ||
+          "Google popup login failed. Please try again.";
+        onError?.(message);
       }
     };
 
@@ -109,8 +113,12 @@ export const useGoogleOneTap = ({
         try {
           const data = await authService.googleTokenLogin(response.credential);
           onSuccess?.(data);
-        } catch (_error) {
-          onError?.("Google login failed. Please try again.");
+        } catch (error) {
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data?.errors?.[0]?.msg ||
+            "Google login failed. Please try again.";
+          onError?.(message);
         }
       },
       auto_select: false,

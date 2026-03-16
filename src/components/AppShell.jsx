@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiPlus, HiXMark } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
@@ -11,9 +11,12 @@ const AppShell = ({ activeKey, children }) => {
   const navigate = useNavigate();
   const { user, setUser, clearAuth } = useAuth();
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const [companies, setCompanies] = useState([]);
+  const [workspaces, setWorkspaces] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(
     () => localStorage.getItem("selectedWorkspace") || ""
+  );
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    () => localStorage.getItem("selectedWorkspaceId") || ""
   );
   const [selectedProfile, setSelectedProfile] = useState(
     () => localStorage.getItem("selectedProfile") || ""
@@ -23,6 +26,14 @@ const AppShell = ({ activeKey, children }) => {
   const [newCompanyName, setNewCompanyName] = useState("");
   const [companyError, setCompanyError] = useState("");
   const companyMenuRef = useRef(null);
+
+  const toWorkspaceItem = (workspace) => ({
+    id: String(workspace?._id || workspace?.id || ""),
+    name: workspace?.name || "",
+    profileName: (workspace?.name || workspace?.profileName || "").trim(),
+    avatar: workspace?.avatar || null,
+    companyDescription: workspace?.companyDescription || ""
+  });
 
   const resolveWorkspaceProfile = (workspaceName, userName = "") => {
     const normalizedWorkspace = (workspaceName || "").trim().toLowerCase();
@@ -34,27 +45,48 @@ const AppShell = ({ activeKey, children }) => {
     return "Company";
   };
 
-  const updateSelectedWorkspace = (workspaceName, explicitProfile = "") => {
+  const updateSelectedWorkspace = (workspaceInput, explicitProfile = "") => {
+    const workspace =
+      typeof workspaceInput === "string"
+        ? workspaces.find((item) => item.name === workspaceInput) || {
+            id: "",
+            name: workspaceInput,
+            profileName: workspaceInput,
+            avatar: null,
+            companyDescription: ""
+          }
+        : workspaceInput;
+
+    const workspaceName = (workspace?.name || "").trim();
+    const workspaceId = (workspace?.id || "").trim();
     if (!workspaceName) return;
+
     const nextProfile = explicitProfile || resolveWorkspaceProfile(workspaceName, user?.name || "");
 
     const savedWorkspace = localStorage.getItem("selectedWorkspace") || "";
+    const savedWorkspaceId = localStorage.getItem("selectedWorkspaceId") || "";
     const savedProfile = localStorage.getItem("selectedProfile") || "";
     if (
       savedWorkspace === workspaceName &&
+      savedWorkspaceId === workspaceId &&
       savedProfile === nextProfile &&
       selectedCompany === workspaceName &&
+      selectedWorkspaceId === workspaceId &&
       selectedProfile === nextProfile
     ) {
       return;
     }
 
     setSelectedCompany(workspaceName);
+    setSelectedWorkspaceId(workspaceId);
     setSelectedProfile(nextProfile);
     localStorage.setItem("selectedWorkspace", workspaceName);
+    localStorage.setItem("selectedWorkspaceId", workspaceId);
     localStorage.setItem("selectedProfile", nextProfile);
     window.dispatchEvent(
-      new CustomEvent("workspace:changed", { detail: { workspaceName, profile: nextProfile } })
+      new CustomEvent("workspace:changed", {
+        detail: { workspaceId, workspaceName, profile: nextProfile }
+      })
     );
   };
 
@@ -72,33 +104,40 @@ const AppShell = ({ activeKey, children }) => {
   }, [setUser]);
 
   useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [user?.avatar]);
-
-  useEffect(() => {
     const loadWorkspaces = async () => {
       try {
         const data = await authService.listWorkspaces();
-        const names = (data.workspaces || []).map((workspace) => workspace.name);
+        const normalized = (data.workspaces || []).map(toWorkspaceItem);
 
-        if (names.length === 0) {
+        if (normalized.length === 0) {
           const initialName = user?.name || "My Workspace";
           const created = await authService.createWorkspace(initialName);
-          const createdName = created.workspace?.name || initialName;
-          setCompanies([createdName]);
-          updateSelectedWorkspace(createdName);
+          const createdWorkspace = toWorkspaceItem(created.workspace || { name: initialName, profileName: initialName });
+          setWorkspaces([createdWorkspace]);
+          updateSelectedWorkspace(createdWorkspace);
           return;
         }
 
-        setCompanies(names);
-        const saved = localStorage.getItem("selectedWorkspace");
-        const nextSelection = saved && names.includes(saved) ? saved : names[0];
+        setWorkspaces(normalized);
+        const savedId = (localStorage.getItem("selectedWorkspaceId") || "").trim();
+        const savedName = (localStorage.getItem("selectedWorkspace") || "").trim();
+        const nextSelection =
+          normalized.find((workspace) => workspace.id === savedId) ||
+          normalized.find((workspace) => workspace.name === savedName) ||
+          normalized[0];
         updateSelectedWorkspace(nextSelection);
       } catch (_error) {
         // Keep UI usable even if workspace API fails.
         const fallback = user?.name || "My Workspace";
-        setCompanies([fallback]);
-        updateSelectedWorkspace(fallback);
+        const fallbackWorkspace = {
+          id: "",
+          name: fallback,
+          profileName: fallback,
+          avatar: null,
+          companyDescription: ""
+        };
+        setWorkspaces([fallbackWorkspace]);
+        updateSelectedWorkspace(fallbackWorkspace);
       }
     };
 
@@ -126,6 +165,36 @@ const AppShell = ({ activeKey, children }) => {
     };
   }, [isAddCompanyOpen]);
 
+  useEffect(() => {
+    const handleWorkspaceProfileUpdated = (event) => {
+      const nextWorkspace = event.detail?.workspace;
+      if (!nextWorkspace?.id) return;
+      const nextWorkspaceId = String(nextWorkspace.id);
+      const nextWorkspaceName = (nextWorkspace.name || "").trim();
+
+      setWorkspaces((prev) =>
+        prev.map((item) => (item.id === nextWorkspaceId ? { ...item, ...toWorkspaceItem(nextWorkspace) } : item))
+      );
+
+      if (selectedWorkspaceId && selectedWorkspaceId === nextWorkspaceId && nextWorkspaceName) {
+        setSelectedCompany(nextWorkspaceName);
+        localStorage.setItem("selectedWorkspace", nextWorkspaceName);
+        window.dispatchEvent(
+          new CustomEvent("workspace:changed", {
+            detail: {
+              workspaceId: nextWorkspaceId,
+              workspaceName: nextWorkspaceName,
+              profile: selectedProfile || localStorage.getItem("selectedProfile") || ""
+            }
+          })
+        );
+      }
+    };
+
+    window.addEventListener("workspace:profile-updated", handleWorkspaceProfileUpdated);
+    return () => window.removeEventListener("workspace:profile-updated", handleWorkspaceProfileUpdated);
+  }, [selectedWorkspaceId, selectedProfile]);
+
   const onLogout = async () => {
     await authService.logout();
     clearAuth();
@@ -146,6 +215,10 @@ const AppShell = ({ activeKey, children }) => {
   const normalizeAvatarUrl = (value) => {
     if (!value) return "";
     const trimmed = value.trim();
+    if (/^(data:image\/|blob:)/i.test(trimmed)) {
+      return trimmed;
+    }
+
     let withProtocol = trimmed;
     if (trimmed.startsWith("//")) {
       withProtocol = `https:${trimmed}`;
@@ -160,15 +233,35 @@ const AppShell = ({ activeKey, children }) => {
     return withProtocol;
   };
 
-  const avatarUrl = normalizeAvatarUrl(user?.avatar || "");
-  const showAvatarImage = Boolean(avatarUrl) && !avatarLoadFailed;
-  const workspaceLabel = selectedCompany || user?.name || "My Workspace";
+  const selectedWorkspace = useMemo(() => {
+    if (!workspaces.length) return null;
+    if (selectedWorkspaceId) {
+      const byId = workspaces.find((item) => item.id === selectedWorkspaceId);
+      if (byId) return byId;
+    }
+    if (selectedCompany) {
+      const byName = workspaces.find((item) => item.name === selectedCompany);
+      if (byName) return byName;
+    }
+    return workspaces[0];
+  }, [workspaces, selectedWorkspaceId, selectedCompany]);
+
+  const workspaceLabel = selectedWorkspace?.profileName || selectedWorkspace?.name || selectedCompany || user?.name || "My Workspace";
   const effectiveProfile = selectedProfile || resolveWorkspaceProfile(workspaceLabel, user?.name || "");
-  const isPersonalWorkspace = effectiveProfile !== "Company";
-  const shouldShowAvatarImage = showAvatarImage && isPersonalWorkspace;
-  const fallbackLabel = isPersonalWorkspace ? user?.name || workspaceLabel || "User" : workspaceLabel || "User";
+  const isPersonalWorkspace = effectiveProfile === "Personal";
+  const userAvatarUrl = normalizeAvatarUrl(user?.avatar || "");
+  const workspaceAvatarUrl = normalizeAvatarUrl(selectedWorkspace?.avatar || "");
+  const avatarUrl = workspaceAvatarUrl || (isPersonalWorkspace ? userAvatarUrl : "");
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUrl]);
+
+  const showAvatarImage = Boolean(avatarUrl) && !avatarLoadFailed;
+  const shouldShowAvatarImage = showAvatarImage;
+  const fallbackLabel = workspaceLabel || "User";
   const avatarLetter = fallbackLabel.trim().charAt(0).toUpperCase();
-  const workspaceSubLabel = isPersonalWorkspace ? user?.name || "User" : "Company Workspace";
+  const workspaceSubLabel = isPersonalWorkspace ? "Personal Workspace" : "Company Workspace";
 
   const openAddCompanyModal = () => {
     setNewCompanyName("");
@@ -186,7 +279,7 @@ const AppShell = ({ activeKey, children }) => {
       return;
     }
 
-    const exists = companies.some((company) => company.toLowerCase() === trimmedName.toLowerCase());
+    const exists = workspaces.some((workspace) => workspace.name.toLowerCase() === trimmedName.toLowerCase());
     if (exists) {
       setCompanyError("Company already exists");
       return;
@@ -194,10 +287,10 @@ const AppShell = ({ activeKey, children }) => {
 
     try {
       const data = await authService.createWorkspace(trimmedName);
-      const createdName = data.workspace?.name || trimmedName;
-      const updatedCompanies = [...companies, createdName];
-      setCompanies(updatedCompanies);
-      updateSelectedWorkspace(createdName);
+      const createdWorkspace = toWorkspaceItem(data.workspace || { name: trimmedName, profileName: trimmedName });
+      const updatedWorkspaces = [...workspaces, createdWorkspace];
+      setWorkspaces(updatedWorkspaces);
+      updateSelectedWorkspace(createdWorkspace);
       setIsAddCompanyOpen(false);
     } catch (error) {
       setCompanyError(error.response?.data?.message || "Failed to create company");
@@ -217,28 +310,32 @@ const AppShell = ({ activeKey, children }) => {
             onClick={() => setIsCompanyMenuOpen((prev) => !prev)}
             className="flex min-w-[240px] items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
-            <span>{selectedCompany || user?.name || "My Workspace"}</span>
+            <span>{workspaceLabel}</span>
             <HiChevronDown className={`transition ${isCompanyMenuOpen ? "rotate-180" : ""}`} size={18} />
           </button>
 
           {isCompanyMenuOpen && (
             <div className="absolute left-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
               <div className="max-h-56 overflow-y-auto py-1">
-                {companies.map((company) => (
+                {workspaces.map((workspace) => (
                   <button
-                    key={company}
+                    key={workspace.id || workspace.name}
                     type="button"
                     onClick={() => {
-                      updateSelectedWorkspace(company);
+                      updateSelectedWorkspace(workspace);
                       setIsCompanyMenuOpen(false);
                     }}
                     className={`flex w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                      selectedCompany === company
+                      selectedWorkspaceId
+                        ? selectedWorkspaceId === workspace.id
+                          ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                          : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                        : selectedCompany === workspace.name
                         ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                         : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                     }`}
                   >
-                    {company}
+                    {workspace.profileName || workspace.name}
                   </button>
                 ))}
               </div>
@@ -267,7 +364,7 @@ const AppShell = ({ activeKey, children }) => {
               {shouldShowAvatarImage ? (
                 <img
                   src={avatarUrl}
-                  alt={user?.name || "User"}
+                  alt={workspaceLabel || "Workspace"}
                   className="h-full w-full object-cover"
                   referrerPolicy="no-referrer"
                   onError={() => setAvatarLoadFailed(true)}

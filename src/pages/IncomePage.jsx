@@ -96,6 +96,9 @@ const buildRangeMeta = ({ mode, customFrom, customTo }) => {
 
 const IncomePage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    localStorage.getItem("selectedWorkspaceId") || ""
+  );
   const [selectedProfile, setSelectedProfile] = useState(
     localStorage.getItem("selectedProfile") ||
       deriveProfileFromWorkspace(localStorage.getItem("selectedWorkspace") || "")
@@ -151,11 +154,13 @@ const IncomePage = () => {
 
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
+      const workspaceId = event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "";
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
       const profile =
         event.detail?.profile ||
         localStorage.getItem("selectedProfile") ||
         deriveProfileFromWorkspace(workspaceName);
+      setSelectedWorkspaceId(workspaceId);
       setSelectedWorkspace(workspaceName);
       setSelectedProfile(profile);
     };
@@ -170,15 +175,25 @@ const IncomePage = () => {
 
   useEffect(() => {
     const loadIncomeData = async () => {
+      const workspaceId = (selectedWorkspaceId || "").trim();
+      if (!workspaceId) {
+        setIncomeSources([]);
+        setIncomes([]);
+        setError("Please select a workspace to view incomes.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError("");
       try {
         const [sourcesRes, incomesRes] = await Promise.all([
           authService.listIncomeSources({
+            workspaceId,
             ...(effectiveProfile ? { profile: effectiveProfile } : {})
           }),
           authService.listIncomes({
-            workspace: selectedWorkspace,
+            workspaceId,
             ...(effectiveProfile ? { profile: effectiveProfile } : {})
           })
         ]);
@@ -192,7 +207,7 @@ const IncomePage = () => {
     };
 
     loadIncomeData();
-  }, [selectedWorkspace, effectiveProfile]);
+  }, [selectedWorkspaceId, effectiveProfile]);
 
   useEffect(() => {
     if (!isAddModalOpen) return undefined;
@@ -224,6 +239,16 @@ const IncomePage = () => {
   const onSubmitIncome = async (event) => {
     event.preventDefault();
     setFormError("");
+    const workspaceId = (selectedWorkspaceId || "").trim();
+    const workspaceName = (selectedWorkspace || "").trim();
+    if (!workspaceId) {
+      setFormError("Please select a workspace first");
+      return;
+    }
+    if (!workspaceName) {
+      setFormError("Please select a workspace first");
+      return;
+    }
 
     if (!form.incomeNature) {
       setFormError("Please select income nature");
@@ -244,10 +269,9 @@ const IncomePage = () => {
 
     setFormLoading(true);
     try {
-      const profile = effectiveProfile || "Personal";
-      const workspaceName = selectedWorkspace || profile;
+      const profile = effectiveProfile || deriveProfileFromWorkspace(workspaceName) || "Company";
       const response = await authService.createIncome({
-        workspaceName,
+        workspaceId,
         profile,
         incomeSourceId: form.incomeSourceId,
         incomeNature: form.incomeNature,

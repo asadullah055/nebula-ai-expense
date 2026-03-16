@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiChevronDown, HiXMark } from "react-icons/hi2";
+import { HiXMark } from "react-icons/hi2";
 import { LuCopy, LuLink, LuRefreshCw, LuUnlink } from "react-icons/lu";
 import { RiArrowRightUpLine } from "react-icons/ri";
 import AppShell from "../components/AppShell";
@@ -21,12 +21,13 @@ const formatExpires = (value) => {
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("income");
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    () => localStorage.getItem("selectedWorkspaceId") || ""
+  );
   const [incomeSources, setIncomeSources] = useState([]);
   const [incomeLoading, setIncomeLoading] = useState(true);
   const [incomeFetchError, setIncomeFetchError] = useState("");
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
-  const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [incomeType, setIncomeType] = useState("");
   const [incomeProfile, setIncomeProfile] = useState("Personal");
   const [incomeCategory, setIncomeCategory] = useState("");
@@ -35,8 +36,6 @@ const SettingsPage = () => {
   const [expenseLoading, setExpenseLoading] = useState(true);
   const [expenseFetchError, setExpenseFetchError] = useState("");
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [isExpenseTypeMenuOpen, setIsExpenseTypeMenuOpen] = useState(false);
-  const [isExpenseProfileMenuOpen, setIsExpenseProfileMenuOpen] = useState(false);
   const [expenseType, setExpenseType] = useState("");
   const [expenseProfile, setExpenseProfile] = useState("Personal");
   const [expenseCategory, setExpenseCategory] = useState("");
@@ -71,10 +70,18 @@ const SettingsPage = () => {
   };
 
   const loadIncomeSources = async () => {
+    const workspaceId = (selectedWorkspaceId || "").trim();
+    if (!workspaceId) {
+      setIncomeSources([]);
+      setIncomeFetchError("Please select a workspace first");
+      setIncomeLoading(false);
+      return;
+    }
+
     setIncomeLoading(true);
     setIncomeFetchError("");
     try {
-      const data = await authService.listIncomeSources();
+      const data = await authService.listIncomeSources({ workspaceId });
       setIncomeSources(data.incomeSources || []);
     } catch (_error) {
       setIncomeFetchError("Failed to load income sources");
@@ -84,10 +91,18 @@ const SettingsPage = () => {
   };
 
   const loadExpenseCategories = async () => {
+    const workspaceId = (selectedWorkspaceId || "").trim();
+    if (!workspaceId) {
+      setExpenseCategories([]);
+      setExpenseFetchError("Please select a workspace first");
+      setExpenseLoading(false);
+      return;
+    }
+
     setExpenseLoading(true);
     setExpenseFetchError("");
     try {
-      const data = await authService.listExpenseCategories();
+      const data = await authService.listExpenseCategories({ workspaceId });
       setExpenseCategories(data.expenseCategories || []);
     } catch (_error) {
       setExpenseFetchError("Failed to load expense categories");
@@ -100,6 +115,20 @@ const SettingsPage = () => {
     loadStatus();
     loadIncomeSources();
     loadExpenseCategories();
+  }, [selectedWorkspaceId]);
+
+  useEffect(() => {
+    const onWorkspaceChanged = (event) => {
+      const workspaceId = event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "";
+      setSelectedWorkspaceId(workspaceId);
+    };
+
+    window.addEventListener("workspace:changed", onWorkspaceChanged);
+    window.addEventListener("storage", onWorkspaceChanged);
+    return () => {
+      window.removeEventListener("workspace:changed", onWorkspaceChanged);
+      window.removeEventListener("storage", onWorkspaceChanged);
+    };
   }, []);
 
   useEffect(() => {
@@ -166,33 +195,36 @@ const SettingsPage = () => {
     }
   };
 
+  const getSelectedProfile = () => {
+    const selectedProfile = (localStorage.getItem("selectedProfile") || "").trim();
+    return PROFILE_OPTIONS.includes(selectedProfile) ? selectedProfile : "Personal";
+  };
+
   const openIncomeModal = () => {
     setIncomeType("");
-    setIncomeProfile("Personal");
+    setIncomeProfile(getSelectedProfile());
     setIncomeCategory("");
     setIncomeError("");
-    setIsTypeMenuOpen(false);
-    setIsProfileMenuOpen(false);
     setIsIncomeModalOpen(true);
   };
 
   const closeIncomeModal = () => {
     setIsIncomeModalOpen(false);
-    setIsTypeMenuOpen(false);
-    setIsProfileMenuOpen(false);
   };
 
   const onAddIncomeSource = async (event) => {
     event.preventDefault();
     const normalizedCategory = incomeCategory.trim();
+    const selectedIncomeProfile = incomeProfile || getSelectedProfile();
+    const workspaceId = (selectedWorkspaceId || "").trim();
 
     if (!incomeType) {
       setIncomeError("Please select a type");
       return;
     }
 
-    if (!incomeProfile) {
-      setIncomeError("Please select profile");
+    if (!workspaceId) {
+      setIncomeError("Please select a workspace first");
       return;
     }
 
@@ -203,9 +235,10 @@ const SettingsPage = () => {
 
     try {
       const data = await authService.createIncomeSource({
+        workspaceId,
         name: normalizedCategory,
         type: incomeType,
-        profile: incomeProfile
+        profile: selectedIncomeProfile
       });
       const created = data.incomeSource;
       setIncomeSources((prev) => [
@@ -226,31 +259,29 @@ const SettingsPage = () => {
 
   const openExpenseModal = () => {
     setExpenseType("");
-    setExpenseProfile("Personal");
+    setExpenseProfile(getSelectedProfile());
     setExpenseCategory("");
     setExpenseError("");
-    setIsExpenseTypeMenuOpen(false);
-    setIsExpenseProfileMenuOpen(false);
     setIsExpenseModalOpen(true);
   };
 
   const closeExpenseModal = () => {
     setIsExpenseModalOpen(false);
-    setIsExpenseTypeMenuOpen(false);
-    setIsExpenseProfileMenuOpen(false);
   };
 
   const onAddExpenseCategory = async (event) => {
     event.preventDefault();
     const normalizedCategory = expenseCategory.trim();
+    const selectedExpenseProfile = expenseProfile || getSelectedProfile();
+    const workspaceId = (selectedWorkspaceId || "").trim();
 
     if (!expenseType) {
       setExpenseError("Please select a type");
       return;
     }
 
-    if (!expenseProfile) {
-      setExpenseError("Please select profile");
+    if (!workspaceId) {
+      setExpenseError("Please select a workspace first");
       return;
     }
 
@@ -261,9 +292,10 @@ const SettingsPage = () => {
 
     try {
       const data = await authService.createExpenseCategory({
+        workspaceId,
         name: normalizedCategory,
         type: expenseType,
-        profile: expenseProfile
+        profile: selectedExpenseProfile
       });
       const created = data.expenseCategory;
       setExpenseCategories((prev) => [
@@ -328,18 +360,17 @@ const SettingsPage = () => {
               {!incomeLoading && incomeSources.map((source) => (
                 <div
                   key={source._id || source.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-300">
                       <RiArrowRightUpLine size={20} />
                     </div>
-                    <div>
-                      <p className="text-base font-medium text-slate-900 dark:text-slate-100">{source.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{source.profile || "Default Profile"}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-medium text-slate-900 dark:text-slate-100">{source.name}</p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <span className="inline-flex shrink-0 rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                     {source.type}
                   </span>
                 </div>
@@ -376,18 +407,17 @@ const SettingsPage = () => {
               {!expenseLoading && expenseCategories.map((category) => (
                 <div
                   key={category._id || category.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-full bg-rose-50 text-rose-500 dark:bg-rose-900/20 dark:text-rose-300">
                       <RiArrowRightUpLine size={20} />
                     </div>
-                    <div>
-                      <p className="text-base font-medium text-slate-900 dark:text-slate-100">{category.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{category.profile || "Default Profile"}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-medium text-slate-900 dark:text-slate-100">{category.name}</p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <span className="inline-flex shrink-0 rounded-full bg-slate-100 px-4 py-1 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                     {category.type}
                   </span>
                 </div>
@@ -530,70 +560,27 @@ const SettingsPage = () => {
               <label htmlFor="incomeType" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                 Type
               </label>
-
-              <div className="relative w-full max-w-md">
-                <button
-                  id="incomeType"
-                  type="button"
-                  onClick={() => setIsTypeMenuOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-500 transition focus:border-[var(--brand)] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                >
-                  <span>{incomeType || "Select Type"}</span>
-                  <HiChevronDown size={20} className={`transition ${isTypeMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isTypeMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    {INCOME_TYPE_OPTIONS.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setIncomeType(type);
-                          setIsTypeMenuOpen(false);
-                          if (incomeError) setIncomeError("");
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-base text-slate-900 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <label htmlFor="incomeCategory" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
-                Which Profile
-              </label>
-              <div className="relative w-full max-w-md">
-                <button
-                id="incomeProfile"
-                  type="button"
-                  onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-500 transition focus:border-[var(--brand)] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                >
-                  <span>{incomeProfile || "Select Profile"}</span>
-                  <HiChevronDown size={20} className={`transition ${isProfileMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isProfileMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    {PROFILE_OPTIONS.map((profileName) => (
-                      <button
-                        key={profileName}
-                        type="button"
-                        onClick={() => {
-                          setIncomeProfile(profileName);
-                          setIsProfileMenuOpen(false);
-                          if (incomeError) setIncomeError("");
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-base text-slate-900 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-                      >
-                        {profileName}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950">
+                {INCOME_TYPE_OPTIONS.map((typeName) => {
+                  const isActive = incomeType === typeName;
+                  return (
+                    <button
+                      key={typeName}
+                      type="button"
+                      onClick={() => {
+                        setIncomeType(typeName);
+                        if (incomeError) setIncomeError("");
+                      }}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                        isActive
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {typeName}
+                    </button>
+                  );
+                })}
               </div>
 
               <label htmlFor="incomeCategory" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
@@ -652,70 +639,27 @@ const SettingsPage = () => {
               <label htmlFor="expenseType" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                 Type
               </label>
-
-              <div className="relative w-full max-w-md">
-                <button
-                  id="expenseType"
-                  type="button"
-                  onClick={() => setIsExpenseTypeMenuOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-500 transition focus:border-[var(--brand)] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                >
-                  <span>{expenseType || "Select Type"}</span>
-                  <HiChevronDown size={20} className={`transition ${isExpenseTypeMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isExpenseTypeMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    {EXPENSE_TYPE_OPTIONS.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => {
-                          setExpenseType(type);
-                          setIsExpenseTypeMenuOpen(false);
-                          if (expenseError) setExpenseError("");
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-base text-slate-900 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <label htmlFor="expenseCategory" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
-                Which Profile
-              </label>
-              <div className="relative w-full max-w-md">
-                <button
-                  id="expenseProfile"
-                  type="button"
-                  onClick={() => setIsExpenseProfileMenuOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-500 transition focus:border-[var(--brand)] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                >
-                  <span>{expenseProfile || "Select Profile"}</span>
-                  <HiChevronDown size={20} className={`transition ${isExpenseProfileMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isExpenseProfileMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    {PROFILE_OPTIONS.map((profileName) => (
-                      <button
-                        key={profileName}
-                        type="button"
-                        onClick={() => {
-                          setExpenseProfile(profileName);
-                          setIsExpenseProfileMenuOpen(false);
-                          if (expenseError) setExpenseError("");
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-base text-slate-900 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-                      >
-                        {profileName}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950">
+                {EXPENSE_TYPE_OPTIONS.map((typeName) => {
+                  const isActive = expenseType === typeName;
+                  return (
+                    <button
+                      key={typeName}
+                      type="button"
+                      onClick={() => {
+                        setExpenseType(typeName);
+                        if (expenseError) setExpenseError("");
+                      }}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                        isActive
+                          ? "bg-[var(--brand)] text-white"
+                          : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {typeName}
+                    </button>
+                  );
+                })}
               </div>
 
               <label htmlFor="expenseCategory" className="block text-base font-semibold text-slate-800 dark:text-slate-200">

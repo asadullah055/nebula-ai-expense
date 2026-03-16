@@ -164,6 +164,9 @@ const TransactionList = ({ title, rows, type }) => (
 
 const DashboardPage = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    localStorage.getItem("selectedWorkspaceId") || ""
+  );
   const [selectedProfile, setSelectedProfile] = useState(localStorage.getItem("selectedProfile") || "");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -171,8 +174,10 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
+      const workspaceId = event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "";
       const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
       const profile = event.detail?.profile || localStorage.getItem("selectedProfile") || "";
+      setSelectedWorkspaceId(workspaceId);
       setSelectedWorkspace(workspaceName);
       setSelectedProfile(profile);
     };
@@ -191,8 +196,13 @@ const DashboardPage = () => {
       setLoading(true);
       setError("");
       try {
+        if (!selectedWorkspaceId) {
+          setDashboardData(null);
+          setLoading(false);
+          return;
+        }
         const data = await authService.getProtectedDashboard({
-          ...(selectedWorkspace ? { workspace: selectedWorkspace } : {}),
+          workspaceId: selectedWorkspaceId,
           ...(selectedProfile ? { profile: selectedProfile } : {})
         });
         setDashboardData(data);
@@ -204,7 +214,7 @@ const DashboardPage = () => {
     };
 
     loadData();
-  }, [selectedWorkspace, selectedProfile]);
+  }, [selectedWorkspaceId, selectedProfile]);
 
   const summary = dashboardData?.summary || { totalIncome: 0, totalExpenses: 0, totalBalance: 0 };
   const recentTransactions = dashboardData?.recentTransactions || [];
