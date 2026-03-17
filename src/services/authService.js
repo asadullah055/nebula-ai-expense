@@ -30,8 +30,10 @@ export const authService = {
     const response = await api.post("/api/workspaces", { name });
     return response.data;
   },
-  getWorkspaceProfile: async (workspaceId) => {
-    const response = await api.get("/api/workspaces/profile", { params: { workspaceId } });
+  getWorkspaceProfile: async (workspaceId, profile) => {
+    const response = await api.get("/api/workspaces/profile", {
+      params: { workspaceId, ...(profile ? { profile } : {}) }
+    });
     return response.data;
   },
   updateWorkspaceProfile: async (formData) => {

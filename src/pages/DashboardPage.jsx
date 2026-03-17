@@ -27,6 +27,8 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 0
   }).format(Number(value || 0));
 
+const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+
 const ordinal = (day) => {
   const number = Number(day || 0);
   if (number % 100 >= 11 && number % 100 <= 13) return `${number}th`;
@@ -220,6 +222,14 @@ const DashboardPage = () => {
   const recentTransactions = dashboardData?.recentTransactions || [];
   const incomeRecent = dashboardData?.income?.recent || [];
   const expenseRecent = dashboardData?.expense?.recent || [];
+  const spendingControl = dashboardData?.spendingControl || {
+    monthlyExpenseLimit: 0,
+    currentMonthIncome: 0,
+    currentMonthExpense: 0,
+    usagePercent: 0,
+    status: "normal",
+    remainingAmount: 0
+  };
 
   const financialRows = useMemo(
     () =>
@@ -250,6 +260,76 @@ const DashboardPage = () => {
         Active workspace: <span className="font-semibold text-slate-900 dark:text-slate-100">{selectedWorkspace || "Not selected"}</span>
         {selectedProfile ? ` (${selectedProfile})` : ""}
       </div>
+
+      {!loading && (
+        <article
+          className={`rounded-xl border px-4 py-3 ${
+            spendingControl.status === "alert"
+              ? "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30"
+              : spendingControl.status === "warning"
+              ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
+              : "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Monthly Expense Control</h3>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                spendingControl.status === "alert"
+                  ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
+                  : spendingControl.status === "warning"
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
+                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200"
+              }`}
+            >
+              {spendingControl.status === "alert"
+                ? "Alert: 100%+ used"
+                : spendingControl.status === "warning"
+                ? "Warning: 80% reached"
+                : "Normal"}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Monthly Limit</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatCurrency(spendingControl.monthlyExpenseLimit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">This Month Income</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatCurrency(spendingControl.currentMonthIncome)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">This Month Expense</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatCurrency(spendingControl.currentMonthExpense)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Expense vs Income</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatPercent(spendingControl.usagePercent)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Remaining</p>
+              <p
+                className={`text-sm font-semibold ${
+                  Number(spendingControl.remainingAmount || 0) < 0
+                    ? "text-rose-600 dark:text-rose-300"
+                    : "text-emerald-600 dark:text-emerald-300"
+                }`}
+              >
+                {formatCurrency(spendingControl.remainingAmount)}
+              </p>
+            </div>
+          </div>
+        </article>
+      )}
 
       {loading && (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">

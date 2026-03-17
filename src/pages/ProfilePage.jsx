@@ -8,12 +8,14 @@ const ProfilePage = () => {
   const fileInputRef = useRef(null);
   const [workspaceId, setWorkspaceId] = useState(() => localStorage.getItem("selectedWorkspaceId") || "");
   const [workspaceName, setWorkspaceName] = useState(() => localStorage.getItem("selectedWorkspace") || "");
+  const [selectedProfile, setSelectedProfile] = useState(() => localStorage.getItem("selectedProfile") || "Company");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
+  const [monthlyExpenseLimit, setMonthlyExpenseLimit] = useState("0");
   const [selectedFileName, setSelectedFileName] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,7 +24,8 @@ const ProfilePage = () => {
   const [savedSnapshot, setSavedSnapshot] = useState({
     name: "",
     avatarUrl: "",
-    companyDescription: ""
+    companyDescription: "",
+    monthlyExpenseLimit: "0"
   });
 
   const normalizeAvatarValue = (value) => {
@@ -43,6 +46,9 @@ const ProfilePage = () => {
     return "Company";
   };
 
+  const effectiveProfile =
+    selectedProfile === "Personal" ? "Personal" : resolveWorkspaceProfile(workspaceName, user?.name || "");
+
   useEffect(() => {
     setEmail(user?.email || "");
   }, [user]);
@@ -51,8 +57,10 @@ const ProfilePage = () => {
     const handleWorkspaceChange = (event) => {
       const nextWorkspaceId = (event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "").trim();
       const nextWorkspaceName = (event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "").trim();
+      const nextProfile = (event.detail?.profile || localStorage.getItem("selectedProfile") || "Company").trim();
       setWorkspaceId(nextWorkspaceId);
       setWorkspaceName(nextWorkspaceName);
+      setSelectedProfile(nextProfile === "Personal" ? "Personal" : "Company");
       setSuccess("");
       setError("");
     };
@@ -66,6 +74,7 @@ const ProfilePage = () => {
       if (!workspaceId) {
         setName("");
         setCompanyDescription("");
+        setMonthlyExpenseLimit("0");
         setAvatarUrl("");
         setAvatarFile(null);
         setAvatarPreview("");
@@ -77,11 +86,12 @@ const ProfilePage = () => {
       setError("");
 
       try {
-        const data = await authService.getWorkspaceProfile(workspaceId);
+        const data = await authService.getWorkspaceProfile(workspaceId, effectiveProfile);
         const workspace = data.workspace || {};
         const nextName = (workspace.name || workspace.profileName || "").trim();
         const nextAvatar = (workspace.avatar || "").trim();
         const nextDescription = workspace.companyDescription || "";
+        const nextMonthlyExpenseLimit = String(Number(workspace.monthlyExpenseLimit || 0));
         const nextWorkspaceName = (workspace.name || workspaceName || "").trim();
 
         setWorkspaceName(nextWorkspaceName);
@@ -90,6 +100,7 @@ const ProfilePage = () => {
         }
         setName(nextName);
         setCompanyDescription(nextDescription);
+        setMonthlyExpenseLimit(nextMonthlyExpenseLimit);
         setAvatarUrl(nextAvatar);
         setAvatarFile(null);
         setAvatarPreview("");
@@ -97,7 +108,8 @@ const ProfilePage = () => {
         setSavedSnapshot({
           name: nextName,
           avatarUrl: nextAvatar,
-          companyDescription: nextDescription
+          companyDescription: nextDescription,
+          monthlyExpenseLimit: nextMonthlyExpenseLimit
         });
       } catch (loadError) {
         setError(loadError.response?.data?.message || "Failed to load workspace profile");
@@ -107,7 +119,7 @@ const ProfilePage = () => {
     };
 
     loadWorkspaceProfile();
-  }, [workspaceId]);
+  }, [workspaceId, effectiveProfile]);
 
   useEffect(() => {
     return () => {
@@ -119,14 +131,13 @@ const ProfilePage = () => {
 
   const normalizedWorkspaceAvatar = normalizeAvatarValue(avatarPreview || avatarUrl || "");
   const normalizedEmailAvatar = normalizeAvatarValue(user?.avatar || "");
-  const effectiveProfile =
-    (localStorage.getItem("selectedProfile") || "").trim() || resolveWorkspaceProfile(workspaceName, user?.name || "");
   const isPersonalWorkspace = effectiveProfile === "Personal";
   const resolvedAvatar = normalizedWorkspaceAvatar || (isPersonalWorkspace ? normalizedEmailAvatar : "");
 
   const hasChanges =
     name.trim() !== savedSnapshot.name ||
     companyDescription.trim() !== savedSnapshot.companyDescription ||
+    monthlyExpenseLimit.trim() !== savedSnapshot.monthlyExpenseLimit ||
     Boolean(avatarFile);
 
   const onPickAvatar = () => {
@@ -174,8 +185,10 @@ const ProfilePage = () => {
     try {
       const formData = new FormData();
       formData.append("workspaceId", workspaceId);
+      formData.append("profile", effectiveProfile);
       formData.append("profileName", name.trim());
       formData.append("companyDescription", companyDescription.trim());
+      formData.append("monthlyExpenseLimit", monthlyExpenseLimit.trim() || "0");
       if (avatarFile) {
         formData.append("avatar", avatarFile);
       }
@@ -186,6 +199,7 @@ const ProfilePage = () => {
       const nextName = (workspace.name || workspace.profileName || "").trim();
       const nextAvatar = (workspace.avatar || "").trim();
       const nextDescription = workspace.companyDescription || "";
+      const nextMonthlyExpenseLimit = String(Number(workspace.monthlyExpenseLimit || 0));
       const nextWorkspaceName = (workspace.name || workspaceName || "").trim();
 
       setWorkspaceName(nextWorkspaceName);
@@ -194,11 +208,13 @@ const ProfilePage = () => {
       }
       setName(nextName);
       setCompanyDescription(nextDescription);
+      setMonthlyExpenseLimit(nextMonthlyExpenseLimit);
       setAvatarUrl(nextAvatar);
       setSavedSnapshot({
         name: nextName,
         avatarUrl: nextAvatar,
-        companyDescription: nextDescription
+        companyDescription: nextDescription,
+        monthlyExpenseLimit: nextMonthlyExpenseLimit
       });
       setAvatarFile(null);
       if (avatarPreview) {
@@ -302,6 +318,29 @@ const ProfilePage = () => {
                   setError("");
                   setSuccess("");
                 }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="monthlyExpenseLimit"
+                className="mb-2 block text-sm font-medium text-slate-800 dark:text-slate-200"
+              >
+                Monthly Expense Limit ({effectiveProfile})
+              </label>
+              <input
+                id="monthlyExpenseLimit"
+                type="number"
+                min="0"
+                step="0.01"
+                value={monthlyExpenseLimit}
+                onChange={(event) => {
+                  setMonthlyExpenseLimit(event.target.value);
+                  setError("");
+                  setSuccess("");
+                }}
+                placeholder="Enter monthly expense limit"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </div>
