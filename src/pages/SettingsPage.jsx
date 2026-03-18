@@ -201,7 +201,7 @@ const SettingsPage = () => {
   };
 
   const openIncomeModal = () => {
-    setIncomeType("");
+    setIncomeType("Recurring Income");
     setIncomeProfile(getSelectedProfile());
     setIncomeCategory("");
     setIncomeError("");
@@ -258,7 +258,7 @@ const SettingsPage = () => {
   };
 
   const openExpenseModal = () => {
-    setExpenseType("");
+    setExpenseType("Recurring Expense");
     setExpenseProfile(getSelectedProfile());
     setExpenseCategory("");
     setExpenseError("");
@@ -327,7 +327,7 @@ const SettingsPage = () => {
                 type="button"
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-xl px-6 py-2.5 text-sm font-bold transition ${isActive
-                    ? "bg-[var(--brand)] text-white"
+                    ? "bg-[var(--brand)] text-white ring-2 ring-white/75 ring-inset dark:ring-slate-200/80"
                     : "bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                   }`}
               >
@@ -560,7 +560,7 @@ const SettingsPage = () => {
               <label htmlFor="incomeType" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                 Type
               </label>
-              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
                 {INCOME_TYPE_OPTIONS.map((typeName) => {
                   const isActive = incomeType === typeName;
                   return (
@@ -571,9 +571,9 @@ const SettingsPage = () => {
                         setIncomeType(typeName);
                         if (incomeError) setIncomeError("");
                       }}
-                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      className={`flex-1 rounded-lg px-3 p-3 text-sm font-semibold transition ${
                         isActive
-                          ? "bg-[var(--brand)] text-white"
+                          ? "bg-[var(--brand)] text-white ring-2 ring-white/75 ring-inset dark:ring-slate-200/80"
                           : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                       }`}
                     >
@@ -639,7 +639,7 @@ const SettingsPage = () => {
               <label htmlFor="expenseType" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                 Type
               </label>
-              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex w-full max-w-md rounded-xl border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
                 {EXPENSE_TYPE_OPTIONS.map((typeName) => {
                   const isActive = expenseType === typeName;
                   return (
@@ -650,9 +650,9 @@ const SettingsPage = () => {
                         setExpenseType(typeName);
                         if (expenseError) setExpenseError("");
                       }}
-                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                      className={`flex-1 rounded-lg px-3 p-3 text-sm font-semibold transition ${
                         isActive
-                          ? "bg-[var(--brand)] text-white"
+                          ? "bg-[var(--brand)] text-white ring-2 ring-white/75 ring-inset dark:ring-slate-200/80"
                           : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                       }`}
                     >

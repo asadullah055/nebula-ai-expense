@@ -224,7 +224,7 @@ const ExpensePage = () => {
     setIsExpenseTypeMenuOpen(false);
     setForm({
       expenseCategoryId: "",
-      expenseType: "",
+      expenseType: "Recurring Expense",
       amount: "",
       entryDate: new Date().toISOString().slice(0, 10)
     });
@@ -418,7 +418,7 @@ const ExpensePage = () => {
                 onClick={() => setRangeMode(preset.key)}
                 className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
                   rangeMode === preset.key
-                    ? "bg-[var(--brand)] text-white"
+                          ? "bg-[var(--brand)] text-white ring-2 ring-white/75 ring-inset dark:ring-slate-200/80"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
@@ -572,7 +572,7 @@ const ExpensePage = () => {
                         }}
                         className={`flex-1 rounded-lg px-3 py-3 text-sm font-semibold transition ${
                           isActive
-                            ? "bg-[var(--brand)] text-white"
+                            ? "bg-[var(--brand)] text-white ring-2 ring-white/75 ring-inset dark:ring-slate-200/80"
                             : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                         }`}
                       >
