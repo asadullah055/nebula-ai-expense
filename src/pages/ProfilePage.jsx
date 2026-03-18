@@ -15,7 +15,6 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
-  const [monthlyExpenseLimit, setMonthlyExpenseLimit] = useState("0");
   const [selectedFileName, setSelectedFileName] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -24,8 +23,7 @@ const ProfilePage = () => {
   const [savedSnapshot, setSavedSnapshot] = useState({
     name: "",
     avatarUrl: "",
-    companyDescription: "",
-    monthlyExpenseLimit: "0"
+    companyDescription: ""
   });
 
   const normalizeAvatarValue = (value) => {
@@ -74,7 +72,6 @@ const ProfilePage = () => {
       if (!workspaceId) {
         setName("");
         setCompanyDescription("");
-        setMonthlyExpenseLimit("0");
         setAvatarUrl("");
         setAvatarFile(null);
         setAvatarPreview("");
@@ -91,7 +88,6 @@ const ProfilePage = () => {
         const nextName = (workspace.name || workspace.profileName || "").trim();
         const nextAvatar = (workspace.avatar || "").trim();
         const nextDescription = workspace.companyDescription || "";
-        const nextMonthlyExpenseLimit = String(Number(workspace.monthlyExpenseLimit || 0));
         const nextWorkspaceName = (workspace.name || workspaceName || "").trim();
 
         setWorkspaceName(nextWorkspaceName);
@@ -100,7 +96,6 @@ const ProfilePage = () => {
         }
         setName(nextName);
         setCompanyDescription(nextDescription);
-        setMonthlyExpenseLimit(nextMonthlyExpenseLimit);
         setAvatarUrl(nextAvatar);
         setAvatarFile(null);
         setAvatarPreview("");
@@ -108,8 +103,7 @@ const ProfilePage = () => {
         setSavedSnapshot({
           name: nextName,
           avatarUrl: nextAvatar,
-          companyDescription: nextDescription,
-          monthlyExpenseLimit: nextMonthlyExpenseLimit
+          companyDescription: nextDescription
         });
       } catch (loadError) {
         setError(loadError.response?.data?.message || "Failed to load workspace profile");
@@ -137,7 +131,6 @@ const ProfilePage = () => {
   const hasChanges =
     name.trim() !== savedSnapshot.name ||
     companyDescription.trim() !== savedSnapshot.companyDescription ||
-    monthlyExpenseLimit.trim() !== savedSnapshot.monthlyExpenseLimit ||
     Boolean(avatarFile);
 
   const onPickAvatar = () => {
@@ -188,7 +181,6 @@ const ProfilePage = () => {
       formData.append("profile", effectiveProfile);
       formData.append("profileName", name.trim());
       formData.append("companyDescription", companyDescription.trim());
-      formData.append("monthlyExpenseLimit", monthlyExpenseLimit.trim() || "0");
       if (avatarFile) {
         formData.append("avatar", avatarFile);
       }
@@ -199,7 +191,6 @@ const ProfilePage = () => {
       const nextName = (workspace.name || workspace.profileName || "").trim();
       const nextAvatar = (workspace.avatar || "").trim();
       const nextDescription = workspace.companyDescription || "";
-      const nextMonthlyExpenseLimit = String(Number(workspace.monthlyExpenseLimit || 0));
       const nextWorkspaceName = (workspace.name || workspaceName || "").trim();
 
       setWorkspaceName(nextWorkspaceName);
@@ -208,13 +199,11 @@ const ProfilePage = () => {
       }
       setName(nextName);
       setCompanyDescription(nextDescription);
-      setMonthlyExpenseLimit(nextMonthlyExpenseLimit);
       setAvatarUrl(nextAvatar);
       setSavedSnapshot({
         name: nextName,
         avatarUrl: nextAvatar,
-        companyDescription: nextDescription,
-        monthlyExpenseLimit: nextMonthlyExpenseLimit
+        companyDescription: nextDescription
       });
       setAvatarFile(null);
       if (avatarPreview) {
@@ -318,29 +307,6 @@ const ProfilePage = () => {
                   setError("");
                   setSuccess("");
                 }}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="monthlyExpenseLimit"
-                className="mb-2 block text-sm font-medium text-slate-800 dark:text-slate-200"
-              >
-                Monthly Expense Limit ({effectiveProfile})
-              </label>
-              <input
-                id="monthlyExpenseLimit"
-                type="number"
-                min="0"
-                step="0.01"
-                value={monthlyExpenseLimit}
-                onChange={(event) => {
-                  setMonthlyExpenseLimit(event.target.value);
-                  setError("");
-                  setSuccess("");
-                }}
-                placeholder="Enter monthly expense limit"
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </div>

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { HiOutlineLockClosed, HiOutlineMail } from "react-icons/hi";
-import { authService } from "../services/authService";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useGoogleOneTap } from "../hooks/useGoogleOneTap";
+import { authService } from "../services/authService";
 
 const LoginPage = () => {
   const navigate = useNavigate();

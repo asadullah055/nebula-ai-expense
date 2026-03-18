@@ -165,7 +165,6 @@ const TransactionList = ({ title, rows, type }) => (
 );
 
 const DashboardPage = () => {
-  const [selectedWorkspace, setSelectedWorkspace] = useState(localStorage.getItem("selectedWorkspace") || "");
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
     localStorage.getItem("selectedWorkspaceId") || ""
   );
@@ -177,10 +176,8 @@ const DashboardPage = () => {
   useEffect(() => {
     const onWorkspaceChanged = (event) => {
       const workspaceId = event.detail?.workspaceId || localStorage.getItem("selectedWorkspaceId") || "";
-      const workspaceName = event.detail?.workspaceName || localStorage.getItem("selectedWorkspace") || "";
       const profile = event.detail?.profile || localStorage.getItem("selectedProfile") || "";
       setSelectedWorkspaceId(workspaceId);
-      setSelectedWorkspace(workspaceName);
       setSelectedProfile(profile);
     };
 
@@ -223,7 +220,6 @@ const DashboardPage = () => {
   const incomeRecent = dashboardData?.income?.recent || [];
   const expenseRecent = dashboardData?.expense?.recent || [];
   const spendingControl = dashboardData?.spendingControl || {
-    monthlyExpenseLimit: 0,
     currentMonthIncome: 0,
     currentMonthExpense: 0,
     usagePercent: 0,
@@ -256,11 +252,6 @@ const DashboardPage = () => {
 
   return (
     <AppShell activeKey="dashboard">
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-        Active workspace: <span className="font-semibold text-slate-900 dark:text-slate-100">{selectedWorkspace || "Not selected"}</span>
-        {selectedProfile ? ` (${selectedProfile})` : ""}
-      </div>
-
       {!loading && (
         <article
           className={`rounded-xl border px-4 py-3 ${
@@ -290,13 +281,7 @@ const DashboardPage = () => {
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Monthly Limit</p>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {formatCurrency(spendingControl.monthlyExpenseLimit)}
-              </p>
-            </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">This Month Income</p>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">

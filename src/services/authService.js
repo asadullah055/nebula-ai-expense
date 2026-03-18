@@ -74,6 +74,30 @@ export const authService = {
     const response = await api.post("/api/expenses", payload);
     return response.data;
   },
+  listBudgetGoals: async (params = {}) => {
+    const response = await api.get("/api/todo/goals", { params });
+    return response.data;
+  },
+  createBudgetGoal: async (payload) => {
+    const response = await api.post("/api/todo/goals", payload);
+    return response.data;
+  },
+  addBudgetGoalEntry: async (goalId, payload) => {
+    const response = await api.post(`/api/todo/goals/${goalId}/entries`, payload);
+    return response.data;
+  },
+  listFinanceTasks: async (params = {}) => {
+    const response = await api.get("/api/todo/tasks", { params });
+    return response.data;
+  },
+  createFinanceTask: async (payload) => {
+    const response = await api.post("/api/todo/tasks", payload);
+    return response.data;
+  },
+  updateFinanceTaskStatus: async (taskId, payload) => {
+    const response = await api.patch(`/api/todo/tasks/${taskId}/status`, payload);
+    return response.data;
+  },
   runAgentCommand: async (payload) => {
     const response = await api.post("/api/agent/command", payload);
     return response.data;
@@ -105,6 +129,10 @@ export const authService = {
   },
   getProtectedDashboard: async (params = {}) => {
     const response = await api.get("/api/protected/dashboard", { params });
+    return response.data;
+  },
+  markNotificationsRead: async (payload = {}) => {
+    const response = await api.patch("/api/protected/notifications/read", payload);
     return response.data;
   },
   googleLoginUrl: `${API_BASE_URL}/api/auth/google`

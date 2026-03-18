@@ -313,13 +313,29 @@ const ExpensePage = () => {
     });
   }, [expenses, rangeMeta.start, rangeMeta.endExclusive]);
 
+  const currentMonthWindow = useMemo(() => {
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).getTime();
+    const endExclusive = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).getTime();
+    return { start, endExclusive };
+  }, []);
+
+  const currentMonthExpenses = useMemo(
+    () =>
+      expenses.filter((item) => {
+        const entryTime = new Date(item.entryDate).getTime();
+        return entryTime >= currentMonthWindow.start && entryTime < currentMonthWindow.endExclusive;
+      }),
+    [expenses, currentMonthWindow.endExclusive, currentMonthWindow.start]
+  );
+
   const recurringExpenses = useMemo(
-    () => filteredExpenses.filter((item) => item.expenseType === "Recurring Expense"),
-    [filteredExpenses]
+    () => currentMonthExpenses.filter((item) => item.expenseType === "Recurring Expense"),
+    [currentMonthExpenses]
   );
   const variableExpenses = useMemo(
-    () => filteredExpenses.filter((item) => item.expenseType === "Variable Expense"),
-    [filteredExpenses]
+    () => currentMonthExpenses.filter((item) => item.expenseType === "Variable Expense"),
+    [currentMonthExpenses]
   );
 
   const recurringTotal = recurringExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -387,7 +403,7 @@ const ExpensePage = () => {
             </span>
           </div>
           <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">${recurringTotal.toFixed(2)}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Fixed monthly obligations</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This month fixed obligations</p>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
@@ -398,7 +414,7 @@ const ExpensePage = () => {
             </span>
           </div>
           <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">${variableTotal.toFixed(2)}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Daily and one-time spending</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This month daily and one-time spending</p>
         </article>
       </section>
 
@@ -638,6 +654,11 @@ const ExpensePage = () => {
 
                 <label htmlFor="entryDate" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                   Date
+                  {form.expenseType === "Recurring Expense" && (
+                    <span className="ml-1 text-xs font-normal text-slate-500 dark:text-slate-400">
+                      (Select the day each month this expense will be added)
+                    </span>
+                  )}
                 </label>
                 <input
                   id="entryDate"

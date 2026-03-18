@@ -1,11 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiChevronDown, HiPlus, HiXMark } from "react-icons/hi2";
+import { HiChevronDown, HiOutlineBell, HiPlus, HiXMark } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 import ThemeSelector from "./ThemeSelector";
 import { SIDEBAR_NAV_ITEMS } from "../config/sidebarNav";
 import { useAuth } from "../hooks/useAuth";
 import { authService } from "../services/authService";
+
+const formatNotificationDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString();
+};
+
+const getNotificationHeadline = (item) => {
+  const days = Number(item?.daysLeft || 0);
+  const dayText = days === 1 ? "1 day" : `${days} days`;
+  if (item?.source === "task") {
+    return `${item.taskType || "Task"} deadline in ${dayText}`;
+  }
+  return `Recurring ${item?.type === "income" ? "income" : "expense"} in ${dayText}`;
+};
+
+const getNotificationDetails = (item) => {
+  if (item?.source === "task") {
+    return `${item.taskType}: ${item.name} | Due: ${formatNotificationDate(item.dueDate)}`;
+  }
+  return `${item?.type === "income" ? "Income" : "Expense"}: ${item.name} | Date: ${formatNotificationDate(item.dueDate)}`;
+};
 
 const AppShell = ({ activeKey, children }) => {
   const navigate = useNavigate();
@@ -23,9 +45,13 @@ const AppShell = ({ activeKey, children }) => {
   );
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [companyError, setCompanyError] = useState("");
   const companyMenuRef = useRef(null);
+  const notificationMenuRef = useRef(null);
 
   const toWorkspaceItem = (workspace) => ({
     id: String(workspace?._id || workspace?.id || ""),
@@ -149,6 +175,9 @@ const AppShell = ({ activeKey, children }) => {
       if (companyMenuRef.current && !companyMenuRef.current.contains(event.target)) {
         setIsCompanyMenuOpen(false);
       }
+      if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target)) {
+        setIsNotificationMenuOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
@@ -250,16 +279,86 @@ const AppShell = ({ activeKey, children }) => {
     return workspaces[0];
   }, [workspaces, selectedWorkspaceId, selectedCompany]);
 
+  const hasCompanyWorkspace = useMemo(
+    () =>
+      workspaces.some(
+        (workspace) => resolveWorkspaceProfile(workspace.name || "", user?.name || "") === "Company"
+      ),
+    [workspaces, user?.name]
+  );
+
   const workspaceLabel = selectedWorkspace?.profileName || selectedWorkspace?.name || selectedCompany || user?.name || "My Workspace";
   const effectiveProfile = selectedProfile || resolveWorkspaceProfile(workspaceLabel, user?.name || "");
   const isPersonalWorkspace = effectiveProfile === "Personal";
   const userAvatarUrl = normalizeAvatarUrl(user?.avatar || "");
   const workspaceAvatarUrl = normalizeAvatarUrl(selectedWorkspace?.avatar || "");
   const avatarUrl = workspaceAvatarUrl || (isPersonalWorkspace ? userAvatarUrl : "");
+  const notificationPreviewItems = notifications.slice(0, 8);
+
+  const markNotificationsAsReadInDb = async (items = notifications) => {
+    const unreadIds = (items || [])
+      .filter((item) => item?.id && !item?.isRead)
+      .map((item) => String(item.id));
+
+    if (!unreadIds.length) return;
+
+    try {
+      await authService.markNotificationsRead({ ids: unreadIds });
+      const unreadIdSet = new Set(unreadIds);
+      setNotifications((prev) =>
+        prev.map((item) => (unreadIdSet.has(String(item.id)) ? { ...item, isRead: true } : item))
+      );
+      setUnreadNotificationCount(0);
+    } catch (_error) {
+      // Keep notifications unchanged if read sync fails.
+    }
+  };
 
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [avatarUrl]);
+
+  useEffect(() => {
+    const workspaceId = (selectedWorkspaceId || "").trim();
+    if (!workspaceId) {
+      setNotifications([]);
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    let isActive = true;
+    const loadNotifications = async () => {
+      try {
+        const data = await authService.getProtectedDashboard({
+          workspaceId,
+          ...(effectiveProfile ? { profile: effectiveProfile } : {})
+        });
+        if (!isActive) return;
+        const items = data?.notifications?.items || [];
+        setNotifications(items);
+        setUnreadNotificationCount(
+          Number(
+            data?.notifications?.unreadCount ??
+              (items || []).filter((item) => item?.id && !item?.isRead).length
+          )
+        );
+      } catch (_error) {
+        if (!isActive) return;
+        setNotifications([]);
+        setUnreadNotificationCount(0);
+      }
+    };
+
+    void loadNotifications();
+    const intervalId = setInterval(() => {
+      void loadNotifications();
+    }, 60000);
+
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedWorkspaceId, effectiveProfile]);
 
   const showAvatarImage = Boolean(avatarUrl) && !avatarLoadFailed;
   const shouldShowAvatarImage = showAvatarImage;
@@ -268,6 +367,7 @@ const AppShell = ({ activeKey, children }) => {
   const workspaceSubLabel = isPersonalWorkspace ? "Personal Workspace" : "Company Workspace";
 
   const openAddCompanyModal = () => {
+    if (hasCompanyWorkspace) return;
     setNewCompanyName("");
     setCompanyError("");
     setIsCompanyMenuOpen(false);
@@ -277,6 +377,11 @@ const AppShell = ({ activeKey, children }) => {
   const submitNewCompany = async (event) => {
     event.preventDefault();
     const trimmedName = newCompanyName.trim();
+
+    if (hasCompanyWorkspace) {
+      setCompanyError("Only one company can be created.");
+      return;
+    }
 
     if (!trimmedName) {
       setCompanyError("Company name is required");
@@ -347,7 +452,13 @@ const AppShell = ({ activeKey, children }) => {
                 <button
                   type="button"
                   onClick={openAddCompanyModal}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--brand)] transition hover:bg-slate-50 dark:hover:bg-slate-800"
+                  disabled={hasCompanyWorkspace}
+                  title={hasCompanyWorkspace ? "You can create only one company" : "Add Company"}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${
+                    hasCompanyWorkspace
+                      ? "cursor-not-allowed text-slate-400 dark:text-slate-500"
+                      : "text-[var(--brand)] hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
                 >
                   <HiPlus size={18} />
                   Add Company
@@ -356,7 +467,54 @@ const AppShell = ({ activeKey, children }) => {
             </div>
           )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <div className="relative" ref={notificationMenuRef}>
+            <button
+              type="button"
+              onClick={() =>
+                setIsNotificationMenuOpen((prev) => {
+                  const nextOpen = !prev;
+                  if (nextOpen) {
+                    void markNotificationsAsReadInDb();
+                  }
+                  return nextOpen;
+                })
+              }
+              className="relative rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              aria-label="Open notifications"
+            >
+              <HiOutlineBell size={20} />
+              {unreadNotificationCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              )}
+            </button>
+
+            {isNotificationMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</p>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{notifications.length} total</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto p-2">
+                  {notificationPreviewItems.length > 0 ? (
+                    notificationPreviewItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                      >
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">{getNotificationHeadline(item)}</p>
+                        <p className="mt-1 text-slate-600 dark:text-slate-300">{getNotificationDetails(item)}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="px-2 py-3 text-sm text-slate-500 dark:text-slate-400">No new notifications.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <ThemeSelector />
         </div>
       </header>

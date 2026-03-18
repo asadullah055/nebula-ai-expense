@@ -313,14 +313,29 @@ const IncomePage = () => {
     });
   }, [incomes, rangeMeta.start, rangeMeta.endExclusive]);
 
-  const totalIncome = filteredIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const currentMonthWindow = useMemo(() => {
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).getTime();
+    const endExclusive = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).getTime();
+    return { start, endExclusive };
+  }, []);
+
+  const currentMonthIncomes = useMemo(
+    () =>
+      incomes.filter((item) => {
+        const entryTime = new Date(item.entryDate).getTime();
+        return entryTime >= currentMonthWindow.start && entryTime < currentMonthWindow.endExclusive;
+      }),
+    [incomes, currentMonthWindow.endExclusive, currentMonthWindow.start]
+  );
+
   const recurringIncomes = useMemo(
-    () => filteredIncomes.filter((item) => item.incomeNature === "Recurring Income"),
-    [filteredIncomes]
+    () => currentMonthIncomes.filter((item) => item.incomeNature === "Recurring Income"),
+    [currentMonthIncomes]
   );
   const variableIncomes = useMemo(
-    () => filteredIncomes.filter((item) => item.incomeNature === "Variable Income"),
-    [filteredIncomes]
+    () => currentMonthIncomes.filter((item) => item.incomeNature === "Variable Income"),
+    [currentMonthIncomes]
   );
   const recurringTotal = recurringIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const variableTotal = variableIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -387,7 +402,7 @@ const IncomePage = () => {
             </span>
           </div>
           <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">${recurringTotal.toFixed(2)}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Stable monthly earnings</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This month recurring earnings</p>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
@@ -398,7 +413,7 @@ const IncomePage = () => {
             </span>
           </div>
           <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">${variableTotal.toFixed(2)}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">One-time or irregular earnings</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This month one-time earnings</p>
         </article>
       </section>
 
@@ -638,6 +653,11 @@ const IncomePage = () => {
 
               <label htmlFor="entryDate" className="block text-base font-semibold text-slate-800 dark:text-slate-200">
                 Date
+                {form.incomeNature === "Recurring Income" && (
+                  <span className="ml-1 text-xs font-normal text-slate-500 dark:text-slate-400">
+                    (Select the day each month this income will be added)
+                  </span>
+                )}
               </label>
               <input
                 id="entryDate"
