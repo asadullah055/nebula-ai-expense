@@ -17,14 +17,15 @@ const getNotificationHeadline = (item) => {
   const days = Number(item?.daysLeft || 0);
   const dayText = days === 1 ? "1 day" : `${days} days`;
   if (item?.source === "task") {
-    return `${item.taskType || "Task"} deadline in ${dayText}`;
+    const taskName = (item?.name || item?.taskType || "Task").trim();
+    return `${taskName} deadline in ${dayText}`;
   }
   return `Recurring ${item?.type === "income" ? "income" : "expense"} in ${dayText}`;
 };
 
 const getNotificationDetails = (item) => {
   if (item?.source === "task") {
-    return `${item.taskType}: ${item.name} | Due: ${formatNotificationDate(item.dueDate)}`;
+    return `${item.taskType || "Task"} | Due: ${formatNotificationDate(item.dueDate)}`;
   }
   return `${item?.type === "income" ? "Income" : "Expense"}: ${item.name} | Date: ${formatNotificationDate(item.dueDate)}`;
 };
@@ -411,7 +412,7 @@ const AppShell = ({ activeKey, children }) => {
       <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 dark:border-slate-800 dark:bg-slate-950">
         <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           <img src="/tmpcrdu8so0.webp" alt="Nebula Nexus" className="h-9 w-9 rounded-lg object-cover" />
-          Nebula AI Expense Manager
+          Nebulanexus
         </h1>
         <div className="relative ml-2 hidden sm:block" ref={companyMenuRef}>
           <button
@@ -497,7 +498,7 @@ const AppShell = ({ activeKey, children }) => {
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</p>
                   <span className="text-xs text-slate-500 dark:text-slate-400">{notifications.length} total</span>
                 </div>
-                <div className="max-h-80 overflow-y-auto p-2">
+                <div className="max-h-80 overflow-y-auto space-y-2 p-2">
                   {notificationPreviewItems.length > 0 ? (
                     notificationPreviewItems.map((item) => (
                       <div

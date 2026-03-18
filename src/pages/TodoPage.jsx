@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { HiOutlineXMark } from "react-icons/hi2";
 import AppShell from "../components/AppShell";
@@ -22,6 +22,11 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString();
+};
+
+const formatLateDays = (daysLate) => {
+  const value = Math.max(1, Number(daysLate || 0));
+  return `${value} day${value === 1 ? "" : "s"} late`;
 };
 
 const TodoPage = () => {
@@ -403,7 +408,7 @@ const TodoPage = () => {
         )}
       </article>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         <article className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-slate-800 dark:bg-slate-950">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Bill Payment Task</h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -473,39 +478,58 @@ const TodoPage = () => {
           )}
           {!loading && tasks.length > 0 && (
             <div className="mt-4 space-y-3">
-              {[...pendingTasks, ...completedTasks].map((task) => (
-                <div
-                  key={task.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{task.name || task.description}</p>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        task.status === "Completed"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
-                      }`}
-                    >
-                      {task.status}
-                    </span>
-                  </div>
-                  {task.description && (
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{task.description}</p>
-                  )}
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {task.taskType} | {formatCurrency(task.amount)} | Deadline: {formatDate(task.deadline)}
-                    {task.daysLeft >= 0 ? ` | ${task.daysLeft} day(s) left` : " | overdue"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => toggleTaskStatus(task)}
-                    className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              {[...pendingTasks, ...completedTasks].map((task) => {
+                const isCompleted = task.status === "Completed";
+                const isOverdue = !isCompleted && Number(task.daysLeft) < 0;
+
+                return (
+                  <div
+                    key={task.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
                   >
-                    Mark as {task.status === "Completed" ? "Pending" : "Completed"}
-                  </button>
-                </div>
-              ))}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{task.name || task.description}</p>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          isOverdue
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200"
+                            : isCompleted
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+                        }`}
+                      >
+                        {isOverdue ? "Overdue" : task.status}
+                      </span>
+                    </div>
+                    {task.description && (
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{task.description}</p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {task.taskType} | {formatCurrency(task.amount)}
+                    </p>
+                    {isOverdue ? (
+                      <>
+                        <p className="mt-1 text-xs font-semibold text-rose-700 dark:text-rose-300">Status: Overdue</p>
+                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">
+                          Deadline: {formatDate(task.deadline)}{" \u2022 "}{formatLateDays(Math.abs(task.daysLeft))}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Deadline: {formatDate(task.deadline)}
+                        {Number(task.daysLeft) >= 0 ? ` | ${task.daysLeft} day(s) left` : ""}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleTaskStatus(task)}
+                      className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Mark as {task.status === "Completed" ? "Pending" : "Completed"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </article>

@@ -173,25 +173,7 @@ export const useGoogleOneTap = ({
   };
 
   const openGoogleLoginPopup = () => {
-    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-      openFallbackPopup();
-      return;
-    }
-
-    initializeGoogle().then((ok) => {
-      if (!ok) return;
-
-      let fallbackTriggered = false;
-      window.google.accounts.id.prompt((notification) => {
-        const notDisplayed = notification?.isNotDisplayed?.() ?? false;
-        const skipped = notification?.isSkippedMoment?.() ?? false;
-
-        if ((notDisplayed || skipped) && !fallbackTriggered) {
-          fallbackTriggered = true;
-          openFallbackPopup();
-        }
-      });
-    });
+    openFallbackPopup();
   };
 
   return { promptGoogleOneTap, openGoogleLoginPopup };
